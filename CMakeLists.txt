@@ -5,3 +5,4 @@ set(CMAKE_C_STANDARD 17)
 
 add_executable(copy ch04-file-io/practice.c)
 add_executable(os_practice_c main.c)
+add_executable(ch05 ch05-file-io-indepth/race_hazard.c)
