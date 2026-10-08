@@ -10,6 +10,7 @@ int main(int argc, char *argv[]) {
     if (fd != -1) {
 
         // If the file exists
+        // Close the fd
 
         printf("[PID %ld] File %s already exists\n", (long) getpid(), argv[1]);
         close(fd);
@@ -19,6 +20,7 @@ int main(int argc, char *argv[]) {
     } else {
 
         // If the file does NOT exist
+        // Create the file
 
         printf("[PID %ld] File %s doesn't exist yet\n", (long) getpid(), argv[1]);
         sleep(5);
