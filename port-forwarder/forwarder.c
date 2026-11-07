@@ -23,6 +23,9 @@ typedef struct {
     int fd;
 } client_args;
 
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+int user_count = 0;
+
 int main() {
 
     // Define IPv4 address and port we will listen to
@@ -69,7 +72,7 @@ int main() {
     close(server_socket_fd);
 }
 
-int create_client_fd(int fd) {
+int create_client_fd(const int fd) {
     struct sockaddr_in client_addr;
     socklen_t client_len = sizeof(client_addr);
     const int client_socket_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
@@ -82,7 +85,11 @@ void *handle_client_loop(void *args) {
     const int fd = a->fd;
     free(a);
 
-    printf("Client connected\n");
+    pthread_mutex_lock(&lock);
+    user_count++;
+    printf("Client Count: %d\n", user_count);
+    pthread_mutex_unlock(&lock);
+
     while (1) {
 
         // Create as many threads as there are client-connections
@@ -103,6 +110,13 @@ void *handle_client_loop(void *args) {
         const int len = snprintf(write_buffer, sizeof(write_buffer), "Server Relayed: %s", read_buffer);
         if (send(fd, write_buffer, len, 0) == -1) { perror("send"); exit(EXIT_FAILURE); }
     }
+
+    printf("Client disconnected\n");
+
+    pthread_mutex_lock(&lock);
+    user_count--;
+    printf("Client Count: %d\n", user_count);
+    pthread_mutex_unlock(&lock);
 
     close(fd);
     return NULL;
