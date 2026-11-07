@@ -17,7 +17,11 @@
 #define BUFFER_SIZE 1024
 
 int create_client_fd(int fd);
-void handle_client_loop();
+void *handle_client_loop(void *args);
+
+typedef struct {
+    int fd;
+} client_args;
 
 int main() {
 
@@ -45,15 +49,48 @@ int main() {
     if (listen(server_socket_fd, 10) == -1) { perror("listen"); exit(EXIT_FAILURE); }
     printf("Server listening on port %d \n", PORT);
 
-    // Accept connections
+    // Run thread-loop
 
-    const int client_socket_fd = create_client_fd(server_socket_fd);
+    pthread_t thread_set[10];
+
+    int i = 0;
+    while (i < 10) {
+        const int client_socket_fd = create_client_fd(server_socket_fd);
+        client_args *args = malloc(sizeof(client_args));
+        args->fd = client_socket_fd;
+        pthread_create(&thread_set[i], NULL, handle_client_loop, args);
+        i++;
+    }
+
+    for (int i = 0; i < 10; i++) {
+        pthread_join(thread_set[i], NULL);
+    }
+
+    close(server_socket_fd);
+}
+
+int create_client_fd(int fd) {
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+    const int client_socket_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
+    if (client_socket_fd == -1) { perror("accept"); exit(EXIT_FAILURE); }
+    return client_socket_fd;
+}
+
+void *handle_client_loop(void *args) {
+    client_args *a = args;
+    const int fd = a->fd;
+    free(a);
+
+    printf("Client connected\n");
     while (1) {
+
+        // Create as many threads as there are client-connections
 
         char read_buffer [BUFFER_SIZE];
 
         // Receive and write messages
-        const ssize_t n = recv(client_socket_fd, read_buffer, BUFFER_SIZE - 1, 0);
+        const ssize_t n = recv(fd, read_buffer, BUFFER_SIZE - 1, 0);
         if (n == -1) { perror("recv"); exit(EXIT_FAILURE); }
         if (n == 0) { break; }
         read_buffer[n] = '\0';
@@ -64,22 +101,9 @@ int main() {
         // Relay back contents to the client
         char write_buffer[n + 100];
         const int len = snprintf(write_buffer, sizeof(write_buffer), "Server Relayed: %s", read_buffer);
-        if (send(client_socket_fd, write_buffer, len, 0) == -1) { perror("send"); exit(EXIT_FAILURE); }
+        if (send(fd, write_buffer, len, 0) == -1) { perror("send"); exit(EXIT_FAILURE); }
     }
 
-    // Close fd connections
-    close(client_socket_fd);
-    close(server_socket_fd);
-}
-
-int create_client_fd(int fd) {
-    struct sockaddr_in client_addr;
-    socklen_t client_len = sizeof(client_addr);
-    int client_socket_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
-    if (client_socket_fd == -1) { perror("accept"); exit(EXIT_FAILURE); }
-    return client_socket_fd;
-}
-
-void handle_client_loop() {
-
+    close(fd);
+    return NULL;
 }
